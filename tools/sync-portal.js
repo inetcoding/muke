@@ -22,6 +22,8 @@ const crypto = require("crypto");
 const { J, auth } = require("./_net.js");
 const G = require("./guards.js");
 const CK = require("./checks.js");
+const PUB = require("./publication.js");
+const SERVER = process.env.MUKE_STRICT_CHECKS === "1";
 const NOTIFY = require("./notify.js");
 const FORCE = process.env.FORCE_SYNC === "1";
 const APP = process.env.LARK_BASE_TOKEN;
@@ -38,24 +40,20 @@ const L = (v) => (v && v.link_record_ids) ? v.link_record_ids : [];
 const D = (n) => { const x = parseFloat(V(n)); return x > 1e11 ? x : null; };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 // ⚠ 并发拉多表会撞 429 且被静默吞成空数组 —— 必须串行 + 重试
-const pull = async (H, t) => { let r = [], pt, guard = 0;
-  do { let q = null;
-    for (let a = 0; a < 4; a++) {
-      try { q = await J(H, "POST", `/open-apis/bitable/v1/apps/${APP}/tables/${t}/records/search?page_size=500` + (pt ? "&page_token=" + pt : ""), {}); }
-      catch (e) { q = null; }
-      if (q && q.data) break;
-      await sleep(900 * (a + 1)); }
-    if (!q || !q.data) throw new Error("拉取失败 " + t);
-    r = r.concat(q.data.items || []); pt = (q.data || {}).page_token;
-    await sleep(260);
-  } while (pt && ++guard < 20);
-  return r; };
-// fields 接口单页硬顶 100，传 page_size=200 也静默截断（A06 有 142 列）。不翻页就会把排在后面的列当「不存在」。
-const fieldsAll = async (H, t) => { let r = [], pt, guard = 0;
-  do { const q = await J(H, "GET", `/open-apis/bitable/v1/apps/${APP}/tables/${t}/fields?page_size=100` + (pt ? "&page_token=" + pt : ""));
-    r = r.concat(((q || {}).data || {}).items || []); pt = ((q || {}).data || {}).page_token;
-  } while (pt && ++guard < 10);
-  return { data: { items: r } }; };
+const pull = async (H, t) => PUB.collectPages(async pt => {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      const q = await J(H, "POST", `/open-apis/bitable/v1/apps/${APP}/tables/${t}/records/search?page_size=500` + (pt ? "&page_token=" + encodeURIComponent(pt) : ""), {});
+      if (q && q.code === 0 && q.data) { await sleep(260); return q; }
+    } catch (e) {}
+    if (attempt < 3) await sleep(900 * (attempt + 1));
+  }
+  throw new Error("Source request failed");
+}, {limit:20});
+// A missing page must never be treated as a complete table.
+const fieldsAll = async (H, t) => ({data:{items:await PUB.collectPages(pt =>
+  J(H, "GET", `/open-apis/bitable/v1/apps/${APP}/tables/${t}/fields?page_size=100` + (pt ? "&page_token=" + encodeURIComponent(pt) : "")),
+  {limit:10, key:"field_id"})}});
 const med = (a) => { if (!a.length) return null; const s = [...a].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
 const slugOf = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
 // 人员字段取名：优先 en_name（Lark 通讯录英文名），因为 slugOf 会把中文剥成空字符串 ——
@@ -106,8 +104,10 @@ const encrypt = (pin, obj) => {
   // ── 1. 开放职位（A01 需求状态=进行中，按岗位聚合）──
   // ⚠ 2026-09-02：A01 的状态列曾叫「需求状态」，现已改名 Status。硬编码列名会在改名后静默失效
   //   （当时靠 jobs.json 体积熔断才发现），所以这里探测实际列名，两个都没有就显式报错。
-  const A01ST = ["Status", "需求状态", "申请状态"].find(k => a01.some(r => k in r.fields));
-  if (!A01ST) throw new Error("A01 找不到状态列（试过 Status / 需求状态 / 申请状态）——列被改名？停止生成，以免把在招岗位清空");
+  const a01Fields = SERVER ? await fieldsAll(H, T.A01) : null;
+  const source = SERVER ? PUB.sourceSnapshot(a01, a01Fields.data.items, h22) : null;
+  const A01ST = SERVER ? "Status" : ["Status", "需求状态"].find(k => a01.some(r => k in r.fields));
+  if (!A01ST) throw new Error("A01 recruitment status field is missing");
   console.log("  A01 状态列 = " + A01ST);
   const jobAgg = {};
   a01.forEach(r => { const f = r.fields;
@@ -325,7 +325,12 @@ const encrypt = (pin, obj) => {
   G.guardPublic("jobs.json", jobsObj);           // 护栏①
   G.guardPublic("bench.json", benchObj);
   const jobDiff = G.diffJobs(OUT + "/jobs.json", jobsObj);
-  const vol = FORCE ? "（已跳过）" : G.guardVolume("jobs.json", jobsObj, OUT + "/jobs.json");  // 护栏②
+  let vol;
+  if (SERVER) {
+    const readPrevious = name => { try { return JSON.parse(fs.readFileSync(OUT + "/" + name, "utf8")); } catch (e) { if (e.code === "ENOENT") return null; throw e; } };
+    const evidence = PUB.validatePublication(readPrevious("jobs.json"), jobsObj, source, readPrevious("_job-source.json"));
+    vol = "Source verified: " + evidence.openJobs + " open, " + evidence.retiredJobs + " retired";
+  } else vol = FORCE ? "（已跳过）" : G.guardVolume("jobs.json", jobsObj, OUT + "/jobs.json");
   fs.writeFileSync(OUT + "/jobs.json", JSON.stringify(jobsObj, null, 1));
   fs.writeFileSync(OUT + "/bench.json", JSON.stringify(benchObj, null, 1));
 
@@ -514,13 +519,13 @@ const encrypt = (pin, obj) => {
                              s: { before: beforeS, after: listEntry("s") } }));
   // 第 ⑤ 道：查「已发布却没上站」。用的是刚回读的 anyJ，跟第 ④ 道同一份磁盘快照 ——
   //   要验的是最终落盘的产物，不是内存里的意图。
-  checks.push(CK.publishedNotLive(a02, anyJ, V));
+  checks.push(CK.publishedNotLive(a02, anyJ, V, SERVER ? new Set(h22.map(r => V(r.fields["Job-CN"])).filter(cn => cn && !openCn[cn])) : null));
   checks.push(CK.dataContract({
     "bench.json": benchBack && benchBack.bench,      // 前端读的是 d.bench 这一层
     "jobs.json": back("jobs.json"),
     "j/<任一>.json": anyJ,
     "s/<任一>.json": anyS,
-    "jobs.json[jobs[0]]": ((back("jobs.json") || {}).jobs || [])[0],
+    "jobs.json[jobs[0]]": SERVER ? {__all:Object.fromEntries((back("jobs.json")?.jobs || []).map((j,i) => [String(i),j]))} : ((back("jobs.json") || {}).jobs || [])[0],
     // manual.json 不由本脚本生成（手动维护），但字段齐不齐照样要核 ——
     // 少一个键，报名页那个数字就变横杠，而且是静默的。
     "manual.json": back("manual.json"),
@@ -540,6 +545,7 @@ const encrypt = (pin, obj) => {
   if (process.env.MUKE_STRICT_CHECKS === "1" && checks.some(c => !c.ok)) {
     throw new Error("Server publication stopped: one or more data contracts failed");
   }
+  if (SERVER) fs.writeFileSync(OUT + "/_job-source.json", JSON.stringify(source), {mode:0o600});
   const alert = CK.compose(checks, jkt);
   if (alert) await NOTIFY.send(alert);
 
@@ -568,9 +574,9 @@ const encrypt = (pin, obj) => {
     },
     bench: { cv: bench.cv, ivRate: bench.ivRate, passRate: bench.passRate, hireRate: bench.hireRate, days: bench.speed },
     config: {
-      schedule: "10:00–17:00 WIB 每整点",
+      schedule: "09:00–22:00 WIB 每整点",
       pbkdf2Iter: ITER,
-      volumeCap: "骤减 50%（增长不拦；岗位归零必拦）",
+      volumeCap: SERVER ? "完整数据与明确停招状态核验" : "骤减 50%（增长不拦；岗位归零必拦）",
       entryTolerance: 3,
       handoff: HANDOFF,                           // 离职链接的接手人
       cvForm: CVURL ? "ok" : "missing",

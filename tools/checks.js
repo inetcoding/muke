@@ -201,7 +201,7 @@ function linksLost(sets) {
 // 这一道不去猜 token 状态，而是查**结果**：A02 里标着「发布」且人没离职的经纪人，
 // 他的归因码就该出现在某个 j/*.json 的 byJob 值里。查不到 = 他的链接是死的，
 // 候选人扫他的码进来会看到「链接无效」。至于是 token 死了还是同步跑挂了，看别的告警。
-function publishedNotLive(a02, jAll, V) {
+function publishedNotLive(a02, jAll, V, closedJobs = null) {
   const live = new Set();
   Object.values((jAll && jAll.__all) || {}).forEach((o) =>
     Object.values((o && o.byJob) || {}).forEach((r) => live.add(String(r))));
@@ -212,6 +212,7 @@ function publishedNotLive(a02, jAll, V) {
     if (V(f["T-Status"]).indexOf("发布") < 0) return;      // 只查已发布的
     // 离职的本来就该下站。锚 RES 后缀而不是「离职」二字：「待离职 NTC」含这两个字但仍在站，按字匹配会把它跳过（与 sync-portal 同口径）
     if (/RES\s*$/.test(V(f["Emp Status"]))) return;
+    if (closedJobs && closedJobs.has(V(f["Job-CN"]))) return;
     const ref = V(f.ARef);
     if (!ref) { noRef.push(1); return; }
     if (!live.has(ref)) notLive.push(ref);
@@ -243,3 +244,4 @@ function compose(results, jkt) {
 }
 
 module.exports = { attribution, prefillKeys, formLinks, dataContract, linksLost, publishedNotLive, compose };
+
