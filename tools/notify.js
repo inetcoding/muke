@@ -40,7 +40,7 @@ module.exports = { send };
 // ── 以下仅在「直接执行本文件」时运行（Actions 的失败分支，行为与改造前一致） ──
 if (require.main === module) {
   (async () => {
-    const repo = process.env.GITHUB_REPOSITORY || "zanboooo/muke";
+    const repo = process.env.GITHUB_REPOSITORY || "inetcoding/muke";
     const runId = process.env.GITHUB_RUN_ID || "";
     const url = "https://github.com/" + repo + "/actions" + (runId ? "/runs/" + runId : "");
     const why = process.env.FAIL_REASON || "同步流程中止";

@@ -1,7 +1,7 @@
 # MUKE · 招聘门户
 
 雅加达 TikTok 团播 MCN 的对外招聘站，配套 Lark 多维表格的招聘链路。
-线上：<https://zanboooo.github.io/muke/>
+线上：<https://inetcoding.github.io/muke/>
 
 ---
 
@@ -16,8 +16,8 @@
 | **不要手工往 `data/` 放文件** | 那个目录整个由 `tools/sync-portal.js` 生成。手放的东西会被下一次同步的孤儿清扫删掉，或者更糟：躲过清扫一直留着 |
 | **不要在公开产物里多输出一个字段** | `tools/checks.js` 的字段契约是双向的：缺前端要读的字段会红，多输出前端不读的字段也会红 |
 | **不要加 LICENSE** | 加了等于邀请别人 fork。fork 会永久留存历史副本，我们清不掉 |
-| **不要加分支保护** | `sync-portal` 每天 8 次用 `github-actions[bot]` 往 `main` 推 `data/`。任何保护规则都会把它拦死，而症状是「同步全绿但数据不更新」 |
-| **只放报名链路的东西** | 内部规程页、演示页、员工向页面都在 [`MSOP`](https://github.com/zanboooo/MSOP) 仓库。这里只留候选人会看到的 |
+| **不要加分支保护** | `sync-portal` 每天 14 次用 `github-actions[bot]` 往 `main` 推 `data/`。任何保护规则都会把它拦死，而症状是「同步全绿但数据不更新」 |
+| **只放报名链路的东西** | 内部规程页、演示页、员工向页面都在 [`MSOP`](https://github.com/inetcoding/MSOP) 仓库。这里只留候选人会看到的 |
 
 **删文件删不掉历史。** `git rm` 只加一个删除提交，文件仍在之前每一个提交的树里，
 GitHub 会一直按 SHA 提供它。这个仓库 2026-09-06 正因为这件事重建过一次——
@@ -31,7 +31,7 @@ GitHub 会一直按 SHA 提供它。这个仓库 2026-09-06 正因为这件事�
 
 ```
 Lark 多维表格 (Base2_HR-Ops)
-      │  tools/sync-portal.js 每天 8 次拉数据、跑护栏、生成产物
+      │  tools/sync-portal.js 每天 14 次拉数据、跑护栏、生成产物
       ▼
    data/*.json ──→ GitHub Pages ──→ 候选人打开 join/?a=<经纪人>
       │                                    │
@@ -54,7 +54,7 @@ Lark 多维表格 (Base2_HR-Ops)
 ## 和 MSOP 的分工
 
 内部规程图形载体（权限矩阵、考勤、笔试、入职、头像台等 19 个页面）2026-09-06 拆到了
-[`MSOP`](https://github.com/zanboooo/MSOP)。**因为这个仓库的网址印在对外招聘物料上**——
+[`MSOP`](https://github.com/inetcoding/MSOP)。**因为这个仓库的网址印在对外招聘物料上**——
 任何人顺着报名页就能摸到仓库根目录，不该让他一并翻到内部规程。
 
 旧地址由 `404.html` 兜底转发到 MSOP，路径 / query / hash 原样带走
@@ -106,7 +106,7 @@ node tools/check-lark.js       # 只验连通性，不写任何东西
 
 | workflow | 触发 | 做什么 |
 |---|---|---|
-| `sync-portal.yml` | 雅加达 10:00–17:00 每整点 ＋ 手动 | 同步数据并提交 |
+| `sync-portal.yml` | 雅加达 09:00–22:00 每整点 ＋ 手动 | 同步数据并提交 |
 | `check-lark.yml` | 手动 | 只打印计数，验凭据 |
 | `weekly-report.yml` | 周一 | 发周报到 Lark 群 |
 

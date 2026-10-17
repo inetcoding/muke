@@ -267,7 +267,7 @@ function render(d){
         navigator.clipboard.writeText(txt).then(function(){done(true);},function(){done(false);});
       else done(false);
     };
-    $('mLink').href='https://github.com/zanboooo/muke/edit/main/data/manual.json';
+    $('mLink').href='https://github.com/inetcoding/muke/edit/main/data/manual.json';
   }).catch(function(){
     $('manual').innerHTML=card('对外展示','读不到','data/manual.json');
   });

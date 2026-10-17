@@ -30,7 +30,7 @@ var MOVED = ["absensi","akses","aksesflow","avatar","cutistep","dayldemo","examd
 var rest = location.pathname.replace(/^\/muke\//, "");
 var seg  = rest.split("/")[0];
 if (MOVED.indexOf(seg) >= 0) {
-  location.replace("https://zanboooo.github.io/MSOP/" + rest + location.search + location.hash);
+  location.replace("https://inetcoding.github.io/MSOP/" + rest + location.search + location.hash);
 } else {
   document.getElementById("p").innerHTML = "<code>/" + (rest || "").replace(/[<>&]/g, "") + "</code>";
   document.getElementById("c").hidden = false;
