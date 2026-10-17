@@ -117,7 +117,7 @@ const delta = (cur, prev) => {
   L.push("  简历 " + tot.cv + " → 一面 " + tot.iv + " → 二面通过 " + tot.pass + " → 入职 " + tot.hired + " → 在岗 " + tot.active);
   L.push("  面试率 " + pct(tot.iv, tot.cv) + "% ｜ 二面通过率 " + pct(tot.pass, tot.iv) + "% ｜ 入职率 " + pct(tot.hired, tot.pass) + "%");
   L.push("");
-  L.push("详细数据在 Lark 的 A02_任务 TASK；报名页状态看板 https://zanboooo.github.io/muke/status/");
+  L.push("详细数据在 Lark 的 A02_任务 TASK；报名页状态看板 https://inetcoding.github.io/muke/status/");
 
   const text = L.join("\n");
   if (process.argv.includes("--dry")) { console.log(text); return; }
