@@ -1,6 +1,6 @@
 'use strict';
 const $=s=>document.querySelector(s);
-let lang='id', data=null, filter='all', selected=null;
+let lang='id', data=null, filter='all', selected=null, publicStatus=null;
 try{lang=localStorage.getItem('muke_lang')==='zh'?'zh':'id';}catch{}
 const text=(id,zh)=>lang==='zh'?zh:id;
 const params=new URLSearchParams(location.search);
@@ -12,6 +12,7 @@ function translate(){
  $('#language').textContent=lang==='zh'?'Bahasa ID ↗':'中文 ↗';
  $('#search').placeholder=text('Cari posisi atau keahlian…','搜索岗位或技能…');
  $('#search').setAttribute('aria-label',text('Cari lowongan','搜索招聘岗位'));
+ if(publicStatus&&!publicStatus.syncConfigured){$('#notice').hidden=false;$('#notice').textContent=text('Situs baru dalam uji coba. Lamaran dilanjutkan melalui portal yang aktif. Perhatikan tanggal pembaruan lowongan di bawah.','新版门户试运行。报名将转到现有申请入口，请留意下方岗位信息的更新日期。');}
  if(data)render();if(selected)detail(selected,false);
 }
 function render(){
@@ -31,4 +32,4 @@ document.querySelectorAll('[data-filter]').forEach(b=>b.onclick=()=>{filter=b.da
 $('#language').onclick=()=>{lang=lang==='id'?'zh':'id';try{localStorage.setItem('muke_lang',lang);}catch{}translate();};
 async function load(){try{const r=await fetch('/data/jobs.json',{cache:'no-store'});if(!r.ok)throw Error();data=await r.json();if(!Array.isArray(data.jobs))throw Error();translate();}catch{$('#count').textContent='—';const box=document.createElement('div');box.className='empty';box.textContent=text('Lowongan belum dapat dimuat. Silakan coba lagi.','暂时无法读取招聘岗位，请重试。');const retry=document.createElement('button');retry.className='retry';retry.textContent=text('Coba lagi','重新加载');retry.onclick=load;box.append(document.createElement('br'),retry);$('#jobs').replaceChildren(box);}}
 translate();load();
-fetch('/api/public-status',{cache:'no-store'}).then(r=>r.json()).then(s=>{if(!s.syncConfigured){$('#notice').hidden=false;$('#notice').textContent=text('Pratinjau situs baru · sinkronisasi server belum diaktifkan. Data berasal dari salinan lowongan yang sudah dipublikasikan.','新版网站预览 · 服务器同步尚未启用，目前展示已发布岗位的快照。');}}).catch(()=>{});
+fetch('/api/public-status',{cache:'no-store'}).then(r=>r.json()).then(s=>{publicStatus=s;translate();}).catch(()=>{});
