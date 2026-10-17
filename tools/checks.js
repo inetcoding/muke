@@ -238,7 +238,7 @@ function compose(results, jkt) {
   // 公开 Actions 日志那边打的是 msg —— 两个出口的详略刻意不同。
   bad.forEach((r) => lines.push("• " + r.name + "：" + (r.detail || r.msg)));
   lines.push("", "报名页本身仍可访问，数据也已更新；以上是链路健康度告警。");
-  lines.push("状态看板：https://zanboooo.github.io/muke/status/");
+  lines.push("状态看板：https://inetcoding.github.io/muke/status/");
   return lines;
 }
 
