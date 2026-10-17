@@ -12,7 +12,7 @@ function translate(){
  $('#language').textContent=lang==='zh'?'Bahasa ID ↗':'中文 ↗';
  $('#search').placeholder=text('Cari posisi atau keahlian…','搜索岗位或技能…');
  $('#search').setAttribute('aria-label',text('Cari lowongan','搜索招聘岗位'));
- if(publicStatus&&!publicStatus.syncConfigured){$('#notice').hidden=false;$('#notice').textContent=text('Situs baru dalam uji coba. Lamaran dilanjutkan melalui portal yang aktif. Perhatikan tanggal pembaruan lowongan di bawah.','新版门户试运行。报名将转到现有申请入口，请留意下方岗位信息的更新日期。');}
+ if(publicStatus&&!publicStatus.applicationsEnabled){$('#notice').hidden=false;$('#notice').textContent=text('Situs baru dalam uji coba. Lamaran dilanjutkan melalui portal yang aktif. Perhatikan tanggal pembaruan lowongan di bawah.','新版门户试运行。报名将转到现有申请入口，请留意下方岗位信息的更新日期。');}
  if(data)render();if(selected)detail(selected,false);
 }
 function render(){
