@@ -26,7 +26,7 @@ const NOTIFY = require("./notify.js");
 const FORCE = process.env.FORCE_SYNC === "1";
 const APP = process.env.LARK_BASE_TOKEN;
 if (!APP) { console.error("🔴 缺 LARK_BASE_TOKEN"); process.exit(1); }
-const OUT = path.join(__dirname, "..", "data");
+const OUT = process.env.MUKE_DATA_DIR ? path.resolve(process.env.MUKE_DATA_DIR) : path.join(__dirname, "..", "data");
 const A06 = "tblesxO7u1JdTVcG";   // 背调表，仅用于预填键自检
 // 2026-09-01 表重编号后的对应关系（table_id 未变，只是名字跟着挪）：
 //   A02_任务 TASK（装配表，新建） / A03_经纪 AGET（原 A02） / A04_星探 SCOT（原 A03）
@@ -462,6 +462,9 @@ const encrypt = (pin, obj) => {
   const orphanJ = sweep("j", keepJ, "入口文件 j/");
   const orphanP = sweep("p", keepP, "星探面板 p/");
   const orphanS = sweep("s", keepP, "星探码索引 s/");   // 与 p/ 同一份 keep：都以 A04 的码为准
+  if (process.env.MUKE_STRICT_CHECKS === "1" && orphanP.length) {
+    throw new Error("Server publication stopped: stale scout panels require review");
+  }
 
   console.log("\n✅ 数据层已生成（按人加密）");
   console.log("  开放职位 " + jobs.length + " 个：" + jobs.map(j => j.cn + "×" + j.goal).join("  "));
@@ -533,6 +536,10 @@ const encrypt = (pin, obj) => {
     msg: slugClash.size ? slugClash.size + " 个入口 slug 被多人共用，归因会串到先出现的人" : "入口 slug 无撞车",
     detail: slugClash.size ? "撞车的 slug：" + [...slugClash].join("、") + "。同名经纪人须在通讯录改英文名区分（如加姓氏首字母）。" : null });
   checks.forEach((c) => console.log("  " + (c.ok ? "✅" : "⚠️") + " " + c.name + "：" + c.msg));
+  // Server generation is published atomically only after all existing contracts pass.
+  if (process.env.MUKE_STRICT_CHECKS === "1" && checks.some(c => !c.ok)) {
+    throw new Error("Server publication stopped: one or more data contracts failed");
+  }
   const alert = CK.compose(checks, jkt);
   if (alert) await NOTIFY.send(alert);
 
@@ -616,3 +623,4 @@ const encrypt = (pin, obj) => {
     }
   }
 })();
+
